@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        canvas {
+            border: 2px solid white;
+            background-color: black;
+        }
+        button {
+            margin-bottom: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button id="startButton">Start Game</button>
+    <canvas id="tetrisCanvas" width="240" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById('tetrisCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const grid = 20; 
+        const rows = canvas.height / grid;
+        const columns = canvas.width / grid;
+
+        let board = Array.from({ length: rows }, () => Array(columns).fill(0));
+        let score = 0;
+        let currentShape;
+        let position = { x: 4, y: 0 };
+        let dropSpeed = 500;
+        let dropCounter = 0;
+        let gameInterval;
+
+        const shapes = [
+            [[1, 1, 1], [0, 1, 0]], 
+            [[1, 1], [1, 1]],       
+            [[1, 1, 1, 1]],         
+            [[1, 1, 0], [0, 1, 1]],
+            [[0, 1, 1], [1, 1, 0]]
+        ];
+
+        function randomShape() {
+            return shapes[Math.floor(Math.random() * shapes.length)];
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#8A2BE2'; // Dunkles Lila für festgelegte Blöcke
+            board.forEach((row, y) =>
+                row.forEach((value, x) => {
+                    if (value === 1) {
+                        ctx.fillRect(x * grid, y * grid, grid - 1, grid - 1);
+                    }
+                })
+            );
+        }
+
+        function drawShape() {
+            ctx.fillStyle = '#40E0D0'; // Türkis für fallende Blöcke
+            currentShape.forEach((row, y) =>
+                row.forEach((value, x) => {
+                    if (value) {
+                        ctx.fillRect((position.x + x) * grid, (position.y + y) * grid, grid - 1, grid - 1);
+                    }
+                })
+            );
+        }
+
+        function mergeShape() {
+            currentShape.forEach((row, y) =>
+                row.forEach((value, x) => {
+                    if (value) {
+                        board[position.y + y][position.x + x] = value;
+                    }
+                })
+            );
+        }
+
+        function validMove(offsetX = 0, offsetY = 0, shape = currentShape) {
+            return shape.every((row, y) =>
+                row.every((value, x) => {
+                    let newX = position.x + x + offsetX;
+                    let newY = position.y + y + offsetY;
+                    return (
+                        value === 0 ||
+                        (newX >= 0 && newX < columns && newY < rows && board[newY][newX] === 0)
+                    );
+                })
+            );
+        }
+
+        function rotateShape() {
+            const rotated = currentShape[0].map((_, colIndex) => currentShape.map(row => row[colIndex]).reverse());
+            if (validMove(0, 0, rotated)) {
+                currentShape = rotated;
+            } else {
+                let offset = 1;
+                while (!validMove(offset, 0, rotated) && offset < currentShape[0].length) {
+                    offset++;
+                }
+                if (validMove(offset, 0, rotated)) {
+                    position.x += offset;
+                    currentShape = rotated;
+                } else if (validMove(-offset, 0, rotated)) {
+                    position.x -= offset;
+                    currentShape = rotated;
+                }
+            }
+        }
+
+        function clearRows() {
+            board = board.filter(row => row.some(value => value === 0));
+            while (board.length < rows) {
+                board.unshift(Array(columns).fill(0));
+            }
+            score += 10; // Punkte erhöhen
+        }
+
+        function drop() {
+            if (validMove(0, 1)) {
+                position.y++;
+            } else {
+                mergeShape();
+                clearRows();
+                currentShape = randomShape();
+                position = { x: 4, y: 0 };
+
+                if (!validMove()) {
+                    clearInterval(gameInterval);
+                    alert(`Game Over! Your score: ${score}`);
+                    document.location.reload();
+                }
+            }
+            draw();
+        }
+
+        function draw() {
+            drawBoard();
+            drawShape();
+            ctx.fillStyle = 'white'; 
+            ctx.fillText(`Score: ${score}`, 10, 20); // Score anzeigen
+        }
+
+        function startGame() {
+            currentShape = randomShape();
+            position = { x: 4, y: 0 };
+            gameInterval = setInterval(() => {
+                drop();
+            }, dropSpeed);
+        }
+
+        startButton.addEventListener('click', () => {
+            if (!gameInterval) {
+                startGame();
+            }
+        });
+
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space') {
+                if (!gameInterval) {
+                    startGame();
+                }
+            } else if (e.key === 'a' && validMove(-1, 0)) {
+                position.x--;
+            } else if (e.key === 'd' && validMove(1, 0)) {
+                position.x++;
+            } else if (e.key === 's') {
+                drop();
+            } else if (e.key === 'w') {
+                rotateShape();
+            }
+            draw();
+        });
+
+        draw(); 
+    </script>
+</body>
+</html>
+
